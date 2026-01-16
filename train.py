@@ -4,12 +4,16 @@ import json
 import math
 import numpy as np
 import random
-
+from energy_model import DeepEnergyModel
 ## Imports for plotting
 import matplotlib.pyplot as plt
 from matplotlib import cm
-%matplotlib inline
-from IPython.display import set_matplotlib_formats
+from matplotlib_inline.backend_inline import set_matplotlib_formats
+
+from data_loader import train_loader, test_loader
+
+from Callback import GenerateCallback, SamplerCallback, OutlierCallback
+
 set_matplotlib_formats('svg', 'pdf') # For export
 from matplotlib.colors import to_rgb
 import matplotlib
@@ -21,26 +25,14 @@ sns.reset_orig()
 
 ## PyTorch
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.utils.data as data
-import torch.optim as optim
-# Torchvision
-import torchvision
-from torchvision.datasets import MNIST
-from torchvision import transforms
-# PyTorch Lightning
-try:
-    import pytorch_lightning as pl
-except ModuleNotFoundError: # Google Colab does not have PyTorch Lightning installed by default. Hence, we do it here if necessary
-    !pip install --quiet pytorch-lightning>=1.4
-    import pytorch_lightning as pl
+import pytorch_lightning as pl
+
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 
 # Path to the folder where the datasets are/should be downloaded (e.g. CIFAR10)
-DATASET_PATH = "../data"
+DATASET_PATH = "C:/EBM/datasets"
 # Path to the folder where the pretrained models are saved
-CHECKPOINT_PATH = "../saved_models/tutorial8"
+CHECKPOINT_PATH = "C:/EBM/module"
 
 # Setting the seed
 pl.seed_everything(42)

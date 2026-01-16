@@ -1,5 +1,7 @@
+import os
 import urllib.request
 from urllib.error import HTTPError
+import os
 # Github URL where saved models are stored for this tutorial
 #远程仓库
 base_url = "https://raw.githubusercontent.com/phlippe/saved_models/main/tutorial8/"
