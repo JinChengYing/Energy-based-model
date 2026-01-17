@@ -1,6 +1,10 @@
+import torch
+import numpy as np
+import random
+
 class Sampler:
 
-    def __init__(self,model, img_shape,sample_size,max_len=8192):
+    def __init__(self,model, img_shape,sample_size,steps,max_len=8192):
         """
                Inputs:
                    model - Neural network to use for modeling E_theta
@@ -8,17 +12,17 @@ class Sampler:
                    sample_size - Batch size of the samples
                    max_len - Maximum number of data points to keep in the buffer
                """
-        super().__init__()
         #super().__init__(): 调用父类的初始化方法。虽
         # 然在这个代码片段中 Sampler 看起来没有继承特定类，
         # 但在复杂的框架（如 PyTorch Lightning）中，这确保了父类的属性被正确初始化
         self.model = model
         self.img_shape = img_shape
+        self.steps = steps
         self.sample_size = sample_size
         self.max_len = max_len
         self.examples=[(torch.rand((1,)+img_shape)*2-1) for i in range(sample_size)]
 
-    def sample_new_exmps(self, step=60, step_size=10):
+    def sample_new_exmps(self, steps=60, step_size=10):
         """
                Function for getting a new batch of "fake" images.
                Inputs:
@@ -28,12 +32,13 @@ class Sampler:
         # Choose 95% of the batch from the buffer, 5% generate from scratch
         n_new = np.random.binomial(self.sample_size, 0.05) #确定随机扔掉的样本占5%数量
         rand_imgs = torch.rand((n_new,)+self.img_shape)*2-1 #生成 纯随机噪声图像
-        old_imgs=torch.cat(random.choices(self.examples, k=self. step_size-n_new), dim=0) #随机扔掉一些旧的样本
-        inp_imgs = torch. cat([rand_imgs, old_imgs], dim=0).detach().to(device) #合并新旧样本为新的batch 扔到gpu里面
+        old_imgs = torch.cat(random.choices(self.examples, k=self.sample_size-n_new), dim=0) #随机扔掉一些旧的样本
+        device = next(self.model.parameters()).device
+        inp_imgs = torch.cat([rand_imgs, old_imgs], dim=0).detach().to(device) #合并新旧样本为新的batch 扔到gpu里面
 
         #做MCMC采样,这里是langevin 采样
 
-        inp_imgs=Sampler.generate_samples(self.model, inp_imgs, steps=steps ,step_size=step_size)
+        inp_imgs=Sampler.generate_samples(self.model, inp_imgs, steps=steps, step_size=step_size)
 
 
         # Add new images to the buffer and remove old ones if needed

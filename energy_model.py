@@ -1,74 +1,44 @@
-from itertools import batched
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
 from Sampler import Sampler
 from CNN import CNNModel
 import torch
 ## Standard libraries
 import os
-import json
-import math
 import numpy as np
 import random
-## Imports for plotting
-import matplotlib.pyplot as plt
-from matplotlib import cm
-from matplotlib_inline.backend_inline import set_matplotlib_formats
-
-from data_loader import train_loader, test_loader
-
-from Callback import GenerateCallback, SamplerCallback, OutlierCallback
-
-set_matplotlib_formats('svg', 'pdf') # For export
-from matplotlib.colors import to_rgb
-import matplotlib
-from mpl_toolkits.mplot3d.axes3d import Axes3D
-from mpl_toolkits.mplot3d import proj3d
-matplotlib.rcParams['lines.linewidth'] = 2.0
-import seaborn as sns
-sns.reset_orig()
-
 ## PyTorch
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import torch.utils.data as data
 import torch.optim as optim
-# Torchvision
-import torchvision
-from torchvision.datasets import MNIST
-from torchvision import transforms
 # PyTorch Lightning
 import pytorch_lightning as pl
 
-from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
-
 class DeepEnergyModel(pl.LightningModule):
-    def __init__(self, img_shape,batch_size, alpha=0.1, lr=1e-4, beta1=0.0,**CNN_args):
+    def __init__(self, img_shape, batch_size, alpha=0.1, lr=1e-4, beta1=0.0, **CNN_args):
         super().__init__()#初始化
         self.save_hyperparameters()
 
         self.cnn=CNNModel(**CNN_args)#传入CNNmodel的参数调用CNN
-        self.sampler=Sampler(self.cnn,img_shape=img)#得到采样结果# 实例化采样器，负责通过 MCMC（马尔可夫链蒙特卡洛）生成“假”样本
+        self.sampler=Sampler(self.cnn, img_shape=img_shape, sample_size=batch_size, steps=60, max_len=8192)#得到采样结果# 实例化采样器，负责通过 MCMC（马尔可夫链蒙特卡洛）生成"假"样本
         self.example_input_array=torch.zeros(1,*img_shape)
 
-        #前向
-        def forward(self, x):
-            return self.cnn(x)#本质上能量模型用的网络是CNN,训练得分网络
-            return z
+    #前向
+    def forward(self, x):
+        return self.cnn(x)#本质上能量模型用的网络是CNN,训练得分网络
 
-        # Energy models can have issues with momentum as the loss surfaces changes with its parameters.
-        # Hence, we set it to 0 by default.
-        #这里处理优化器
+    # Energy models can have issues with momentum as the loss surfaces changes with its parameters.
+    # Hence, we set it to 0 by default.
+    #这里处理优化器
+    def configure_optimizers(self):
         optimizer=optim.Adam(self.parameters(),lr=self.hparams.lr, betas=(self.hparams.beta1,0.999))
         scheduler=optim.lr_scheduler.StepLR(optimizer,1,gamma=0.97)#随着epoch指数衰减学习率, 避免over shooting
-        return [optimizer,scheduler]
+        return [optimizer],[scheduler]
 
         #训练
     def training_step(self,batch,batch_idx):#batch_idx可以控制批次号, 学习率等
         # We add minimal noise to the original images to prevent the model from focusing on purely "clean" inputs
         real_imgs,_=batch#从 batch 中取第一个元素赋给 real_imgs，第二个元素丢弃不用
         small_noise = torch.randn_like(real_imgs)*0.005
-        real_imgs=real_imgs+small_noise.add_(small_noise).clamp_(min=-1.0, max=1.0)
+        real_imgs=(real_imgs+small_noise).clamp_(min=-1.0, max=1.0)
 
         #获取样本,使用60步Langevin采样
         fake_imgs=self.sampler.sample_new_exmps(steps=60,step_size=10)
@@ -90,7 +60,7 @@ class DeepEnergyModel(pl.LightningModule):
         self.log('metrics_avg_fake', fake_out.mean())
         return loss
 
-        #validation步骤
+    #validation步骤
     def validation_step(self,batch,batch_idx):
         #使用对比散度
         # For validating, we calculate the contrastive divergence between purely random images and unseen examples
@@ -102,7 +72,7 @@ class DeepEnergyModel(pl.LightningModule):
         real_out,fake_out=self.cnn(inp_imgs).chunk(2,dim=0)
 
         cdiv= fake_out.mean()- real_out.mean()
-        self.log('val_constrastive_divergence', cdiv)
+        self.log('val_contrastive_divergence', cdiv)
         self.log('metrics_avg_fake', fake_out.mean())
         self.log('val_real_out', real_out.mean())
 

@@ -1,5 +1,6 @@
 import torch
 import torchvision
+import random
 from Sampler import Sampler
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import LearningRateMonitor, ModelCheckpoint
